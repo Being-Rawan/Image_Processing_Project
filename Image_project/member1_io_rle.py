@@ -12,6 +12,7 @@ This file is used by main_app.py via:
 
 import os
 from typing import Tuple
+from itertools import groupby
 from PIL import Image
 
 
@@ -33,8 +34,30 @@ def load_image(path: str) -> Image.Image:
     PIL.Image.Image
         Image object in RGB mode.
     """
+    # Use Pillow's optimized loader + convert once to RGB
     img = Image.open(path).convert("RGB")
     return img
+
+
+def _format_file_size(size_bytes: int) -> str:
+    """
+    Convert file size in bytes to a human-readable string.
+    (B, KB, MB, GB, ...)
+
+    This is just for display in the GUI's Image Info.
+    """
+    units = ["B", "KB", "MB", "GB", "TB"]
+    size = float(size_bytes)
+    unit_idx = 0
+
+    while size >= 1024.0 and unit_idx < len(units) - 1:
+        size /= 1024.0
+        unit_idx += 1
+
+    if unit_idx == 0:
+        return f"{int(size)} {units[unit_idx]}"
+    else:
+        return f"{size:.1f} {units[unit_idx]}"
 
 
 def get_image_info(path: str) -> Tuple[int, int, str, str]:
@@ -51,7 +74,7 @@ def get_image_info(path: str) -> Tuple[int, int, str, str]:
     (width, height, size_str, img_type)
         width    : int  - image width in pixels
         height   : int  - image height in pixels
-        size_str : str  - file size as a human-readable string, e.g. "123.4 KB"
+        size_str : str  - file size as a human-readable string
         img_type : str  - image format string, e.g. "JPEG", "PNG"
     """
     img = Image.open(path)
@@ -60,8 +83,7 @@ def get_image_info(path: str) -> Tuple[int, int, str, str]:
 
     try:
         size_bytes = os.path.getsize(path)
-        size_kb = size_bytes / 1024.0
-        size_str = f"{size_kb:.1f} KB"
+        size_str = _format_file_size(size_bytes)
     except OSError:
         size_str = "Unknown size"
 
@@ -94,25 +116,30 @@ def rle_encode(data: bytes) -> bytes:
     if not data:
         return b""
 
-    if not isinstance(data, (bytes, bytearray)):
+    if not isinstance(data, (bytes, bytearray, memoryview)):
         raise TypeError("rle_encode expects a bytes-like object.")
 
+    # Use memoryview to avoid extra copies if data is a large bytes object
+    mv = memoryview(data)
     encoded = bytearray()
-    prev = data[0]
-    count = 1
+    append = encoded.append  # local binding for speed
 
-    for b in data[1:]:
-        if b == prev and count < 255:
-            count += 1
-        else:
-            encoded.append(count)
-            encoded.append(prev)
-            prev = b
-            count = 1
+    # groupby groups consecutive identical bytes efficiently in C
+    for value, group in groupby(mv):
+        # We need the run length; iterate once over the group
+        run_length = 0
+        for _ in group:
+            run_length += 1
 
-    # flush last run
-    encoded.append(count)
-    encoded.append(prev)
+        # Split long runs into chunks of at most 255
+        while run_length > 255:
+            append(255)
+            append(value)
+            run_length -= 255
+
+        # Remainder (1..255)
+        append(run_length)
+        append(value)
 
     return bytes(encoded)
 
@@ -137,19 +164,27 @@ def rle_decode(comp: bytes) -> bytes:
     if not comp:
         return b""
 
-    if not isinstance(comp, (bytes, bytearray)):
+    if not isinstance(comp, (bytes, bytearray, memoryview)):
         raise TypeError("rle_decode expects a bytes-like object.")
 
     if len(comp) % 2 != 0:
         raise ValueError("Invalid RLE data length (must be even).")
 
+    mv = memoryview(comp)
     out = bytearray()
+    extend = out.extend  # local binding for speed
 
     # Iterate over pairs: (count, value)
-    for i in range(0, len(comp), 2):
-        count = comp[i]
-        value = comp[i + 1]
-        out.extend([value] * count)
+    # Using step=2 avoids manual indexing logic
+    for i in range(0, len(mv), 2):
+        count = mv[i]
+        value = mv[i + 1]
+
+        if count <= 0:
+            # Defensive check; not strictly necessary if encoder is correct
+            continue
+
+        # Use list repetition + extend (fast in C)
+        extend([value] * count)
 
     return bytes(out)
-

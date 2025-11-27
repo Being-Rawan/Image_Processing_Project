@@ -278,7 +278,8 @@ class ImageApp(tk.Tk):
 
         self.compressed_data = None
 
-        self.zoom_var = tk.DoubleVar(value=100.0)  # % zoom for viewer
+        self.zoom_var = tk.DoubleVar(value=100.0)   # % zoom for viewer
+        self.zoom_percent_var = tk.StringVar(value="100%")  # visible zoom label
         self.status_var = tk.StringVar(value="Ready")
 
         self._init_style()
@@ -300,6 +301,23 @@ class ImageApp(tk.Tk):
         accent = "#fb7185"        # soft pink
         accent_light = "#fda4af"  # lighter pink
         accent_alt = "#38bdf8"    # soft blue
+
+        # Scrollbars (sweet pink)
+        style.configure(
+            "Pink.Horizontal.TScrollbar",
+            troughcolor="#fde2e4",
+            background=accent,
+            bordercolor=accent_light,
+            arrowcolor="white"
+        )
+        style.configure(
+            "Pink.Vertical.TScrollbar",
+            troughcolor="#fde2e4",
+            background=accent,
+            bordercolor=accent_light,
+            arrowcolor="white"
+        )
+
         fg_main = "#111827"       # dark text
         fg_muted = "#6b7280"      # gray text
 
@@ -360,7 +378,7 @@ class ImageApp(tk.Tk):
             background=[("active", "#0ea5e9")]
         )
 
-        # Notebook (tabs) – now with pastel look
+        # Notebook (tabs) – pastel look
         style.configure("TNotebook", background=bg_panel, borderwidth=0)
         style.configure(
             "TNotebook.Tab",
@@ -381,11 +399,19 @@ class ImageApp(tk.Tk):
                         foreground=fg_muted,
                         font=("Segoe UI", 9))
 
-        # Zoom label
+        # Zoom labels
         style.configure("Zoom.TLabel",
                         background=bg_panel,
                         foreground=fg_muted,
                         font=("Segoe UI", 9))
+
+        # Distinct style for the live zoom percentage (pink background)
+        style.configure(
+            "ZoomValue.TLabel",
+            background=accent,
+            foreground="white",
+            font=("Segoe UI", 9, "bold")
+        )
 
     # ----------------- LAYOUT -----------------
     def _build_layout(self):
@@ -437,12 +463,36 @@ class ImageApp(tk.Tk):
         right_frame = ttk.Frame(main_frame, style="Right.TFrame")
         right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=(8, 0))
 
-        # Image display
+        # Image display frame
         img_frame = ttk.LabelFrame(left_frame, text="Image Viewer 🎯", style="Viewer.TLabelframe")
         img_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
+        img_frame.pack_propagate(False)
+        self.viewer_frame = img_frame
 
-        self.image_label = ttk.Label(img_frame, text="No image loaded", anchor="center")
-        self.image_label.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+        # Canvas + scrollbars so we can navigate when zoomed in
+        self.image_canvas = tk.Canvas(img_frame, bg="white", highlightthickness=0)
+        x_scroll = ttk.Scrollbar(
+            img_frame,
+            orient="horizontal",
+            command=self.image_canvas.xview,
+            style="Pink.Horizontal.TScrollbar"
+        )
+        y_scroll = ttk.Scrollbar(
+            img_frame,
+            orient="vertical",
+            command=self.image_canvas.yview,
+            style="Pink.Vertical.TScrollbar"
+        )
+
+        self.image_canvas.configure(xscrollcommand=x_scroll.set, yscrollcommand=y_scroll.set)
+
+        # Use grid inside img_frame so canvas and scrollbars stay in place
+        self.image_canvas.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+        y_scroll.grid(row=0, column=1, sticky="ns")
+        x_scroll.grid(row=1, column=0, sticky="ew")
+
+        img_frame.rowconfigure(0, weight=1)
+        img_frame.columnconfigure(0, weight=1)
 
         # Viewer bottom: info + zoom
         viewer_bottom = ttk.Frame(left_frame, style="Left.TFrame")
@@ -467,10 +517,18 @@ class ImageApp(tk.Tk):
             to=200,
             orient=tk.HORIZONTAL,
             variable=self.zoom_var,
-            command=lambda v: self._update_image_display()
+            command=self.on_zoom_change,   # uses handler that updates label + image
         )
         zoom_slider.pack(side=tk.LEFT, padx=2, pady=4)
-        ttk.Label(zoom_frame, text="200%", style="Zoom.TLabel").pack(side=tk.LEFT, padx=(2, 6))
+        ttk.Label(zoom_frame, text="200%", style="Zoom.TLabel").pack(side=tk.LEFT, padx=(2, 4))
+
+        # Dynamic zoom percentage label (e.g., "137%") with pink background
+        self.zoom_label = ttk.Label(
+            zoom_frame,
+            textvariable=self.zoom_percent_var,
+            style="ZoomValue.TLabel"
+        )
+        self.zoom_label.pack(side=tk.LEFT, padx=(4, 6))
 
         # Tabs (right side)
         notebook = ttk.Notebook(right_frame)
@@ -495,6 +553,14 @@ class ImageApp(tk.Tk):
 
     def set_status(self, text):
         self.status_var.set(text)
+
+    # Zoom handler (updates label + redraws image)
+    def on_zoom_change(self, value):
+        try:
+            self.zoom_percent_var.set(f"{int(float(value))}%")
+        except Exception:
+            self.zoom_percent_var.set(f"{self.zoom_var.get():.0f}%")
+        self._update_image_display()
 
     # ----------------- BASIC TAB -----------------
     def _build_basic_tab(self, notebook):
@@ -785,35 +851,103 @@ class ImageApp(tk.Tk):
     def reset_image(self):
         if self.original_image is None:
             return
+
+        # Restore the original image and array
         self.current_image = self.original_image.copy()
         self.current_array = np.array(self.current_image)
+
+        # Reset zoom to 100%
+        self.zoom_var.set(100.0)
+        self.zoom_percent_var.set("100%")
+
+        # Redraw the image in the viewer
         self._update_image_display()
 
+        # Clear UI comments / compression stats
         self.binary_comment_var.set("")
         self.hist_comment_var.set("")
         self.orig_size_var.set("Original size: -")
         self.comp_size_var.set("Compressed size: -")
         self.ratio_var.set("Compression ratio: -")
-        self.info_text.set("Resolution: -    Size: -    Type: -")
+
+        # Important: clear compressed data so Decompress can't be used
+        # until a new Compress is done
+        self.compressed_data = None
+
+        # Keep info_text as it is (Resolution / Size / Type stay visible)
         self.set_status("Reset to original image.")
 
+
     def _update_image_display(self):
-        if self.current_image is None:
-            self.image_label.config(text="No image loaded", image="")
+        """
+        Draw current_image on the canvas:
+        - At 100% zoom, it fits inside the viewer.
+        - When smaller than the viewer, it is centered.
+        - When larger, scrollbars allow navigating the full image,
+          and zooming re-centers the view on the image center.
+        """
+        if not hasattr(self, "image_canvas"):
             return
 
-        max_w, max_h = 700, 600
+        canvas_w = self.image_canvas.winfo_width()
+        canvas_h = self.image_canvas.winfo_height()
+
+        # If the window isn't fully laid out yet, use a reasonable fallback
+        if canvas_w <= 1 or canvas_h <= 1:
+            canvas_w, canvas_h = 700, 600
+
+        if self.current_image is None:
+            # Clear canvas and show a centered "No image" text
+            self.image_canvas.delete("all")
+            self.image_canvas.create_text(
+                canvas_w // 2,
+                canvas_h // 2,
+                anchor="center",
+                text="No image loaded",
+            )
+            self.image_canvas.config(scrollregion=(0, 0, canvas_w, canvas_h))
+            return
+
+        # Original image size
         w, h = self.current_image.size
 
-        base_scale = min(max_w / w, max_h / h, 1.0)
+        # Base scale makes the image fit inside the canvas at 100% zoom
+        base_scale = min(canvas_w / w, canvas_h / h, 1.0)
+
+        # Apply zoom factor
         zoom_factor = self.zoom_var.get() / 100.0
         scale = max(base_scale * zoom_factor, 0.1)
 
-        new_size = (max(int(w * scale), 1), max(int(h * scale), 1))
-        disp_img = self.current_image.resize(new_size, Image.Resampling.LANCZOS)
+        new_w = max(int(w * scale), 1)
+        new_h = max(int(h * scale), 1)
 
+        disp_img = self.current_image.resize((new_w, new_h), Image.Resampling.LANCZOS)
         self.tk_image = ImageTk.PhotoImage(disp_img)
-        self.image_label.config(image=self.tk_image, text="")
+
+        # Center the image when it's smaller than the canvas
+        offset_x = max((canvas_w - new_w) // 2, 0)
+        offset_y = max((canvas_h - new_h) // 2, 0)
+
+        self.image_canvas.delete("all")
+        self.image_canvas.create_image(offset_x, offset_y, image=self.tk_image, anchor="nw")
+
+        # Scroll region should cover the full visible area or the image, whichever is larger
+        scroll_w = max(canvas_w, new_w)
+        scroll_h = max(canvas_h, new_h)
+        self.image_canvas.config(scrollregion=(0, 0, scroll_w, scroll_h))
+
+        # Center the view on the image when it's larger than the canvas
+        if scroll_w > canvas_w:
+            frac_x = (scroll_w - canvas_w) / (2 * scroll_w)
+            self.image_canvas.xview_moveto(frac_x)
+        else:
+            self.image_canvas.xview_moveto(0.0)
+
+        if scroll_h > canvas_h:
+            frac_y = (scroll_h - canvas_h) / (2 * scroll_h)
+            self.image_canvas.yview_moveto(frac_y)
+        else:
+            self.image_canvas.yview_moveto(0.0)
 
     def _update_image_info(self, filename=None):
         if filename is None:
@@ -1194,6 +1328,26 @@ class ImageApp(tk.Tk):
     # COMPRESSION
     # ============================================================
 
+    def _format_size(self, num_bytes: int) -> str:
+        """
+        Convert a size in bytes into a human-readable string:
+        bytes, KB, MB, GB, TB.
+        """
+        units = ["bytes", "KB", "MB", "GB", "TB"]
+        size = float(num_bytes)
+        unit_idx = 0
+
+        while size >= 1024.0 and unit_idx < len(units) - 1:
+            size /= 1024.0
+            unit_idx += 1
+
+        if unit_idx == 0:
+            # bytes, show as integer
+            return f"{int(size)} {units[unit_idx]}"
+        else:
+            # KB or higher, show with 2 decimal places
+            return f"{size:.2f} {units[unit_idx]}"
+
     def _image_to_bytes(self):
         if self.current_array is None:
             return None
@@ -1238,8 +1392,11 @@ class ImageApp(tk.Tk):
         comp_size = len(compressed) if hasattr(compressed, "__len__") else 0
         ratio = (orig_size / comp_size) if comp_size else 0
 
-        self.orig_size_var.set(f"Original size: {orig_size} bytes")
-        self.comp_size_var.set(f"Compressed size: {comp_size} bytes")
+        # Use human-readable sizes
+        self.orig_size_var.set(f"Original size: {self._format_size(orig_size)}")
+        self.comp_size_var.set(
+            f"Compressed size: {self._format_size(comp_size)}" if comp_size else "Compressed size: 0 bytes"
+        )
         self.ratio_var.set(
             f"Compression ratio: {ratio:.2f} : 1" if comp_size else "Compression ratio: -"
         )
@@ -1276,6 +1433,13 @@ class ImageApp(tk.Tk):
             return
 
         self._set_array_as_image(arr)
+
+        # After decompression: show only original size, clear other stats
+        orig_size = len(data)
+        self.orig_size_var.set(f"Original size: {self._format_size(orig_size)}")
+        self.comp_size_var.set("Compressed size: -")
+        self.ratio_var.set("Compression ratio: -")
+
         self.set_status(f"Decompressed using {method_name} and displayed.")
 
 
