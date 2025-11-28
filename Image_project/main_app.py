@@ -1376,7 +1376,10 @@ class ImageApp(tk.Tk):
             return
 
         try:
-            compressed = method["encode"](data)
+            if method_name == "DCT-block":
+                compressed = method["encode"](data, self.current_array.shape)
+            else:
+                compressed = method["encode"](data)
         except NotImplementedError as e:
             messagebox.showinfo("Not Implemented", str(e))
             self.set_status(f"Compression method '{method_name}' not implemented.")
