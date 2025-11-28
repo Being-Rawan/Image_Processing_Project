@@ -17,34 +17,34 @@ def median_filter_7x7(image):
     blurred_image = cv2.medianBlur(image, ksize)
     return blurred_image
 
-def predictive_encode(image):
-
-    h, w = image.shape
-    residuals = np.zeros((h, w), dtype=np.int16)
-
-    for i in range(h):
-        for j in range(w):
-            if j == 0:
-                pred = 0
-            else:
-                pred = image[i, j-1]
-            residuals[i, j] = int(image[i, j]) - int(pred)
-
-    return residuals
-
-def predictive_decode(residuals):
+def predictive_encode(data: bytes) -> bytes:
     
-    h, w = residuals.shape
-    image_rec = np.zeros((h, w), dtype=np.uint8)
+    arr = np.frombuffer(data, dtype=np.uint8)
+    
+    
+    residuals = np.zeros_like(arr, dtype=np.int16)
+    residuals[0] = arr[0]
+    residuals[1:] = arr[1:] - arr[:-1]
+    
+    
+    residuals_bytes = (residuals + 256) % 256
+    return residuals_bytes.astype(np.uint8).tobytes()
 
-    for i in range(h):
-        for j in range(w):
-            if j == 0:
-                pred = 0
-            else:
-                pred = image_rec[i, j-1]
-            val = residuals[i, j] + pred
-            val = np.clip(val, 0, 255)
-            image_rec[i, j] = val
 
-    return image_rec
+def predictive_decode(comp: bytes) -> bytes:
+    
+    residuals_bytes = np.frombuffer(comp, dtype=np.uint8)
+    
+    
+    residuals = residuals_bytes.astype(np.int16)
+    residuals[residuals > 127] -= 256
+    
+    
+    arr = np.zeros_like(residuals, dtype=np.int16)
+    arr[0] = residuals[0]
+    for i in range(1, len(residuals)):
+        arr[i] = arr[i-1] + residuals[i]
+    
+    
+    arr = np.clip(arr, 0, 255).astype(np.uint8)
+    return arr.tobytes()
