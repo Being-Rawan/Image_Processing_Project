@@ -1,4 +1,7 @@
 import numpy as np
+from PIL import Image
+import hashlib
+import pickle
 
 def histogram_equalization(gray):
     '''Applies histogram equalization to a grayscale image'''
@@ -13,14 +16,36 @@ def histogram_equalization(gray):
     equalized_image= np.clip(equalized_image, 0, 255).astype(np.uint8)
     return equalized_image
 
-#TODO(Wagih): find some actual algorithm to be implemented for "Symbol-Based Coding".
-# all I could find was some indians describing something with the same name:
-#https://www.youtube.com/watch?v=DciaZHFRX_A
-#https://www.ripublication.com/irph/ijert19/ijertv12n4_05.pdf
-# AI insists that Symbol-Based is the same as RLE and doesn't seem to generate any other useful code otherwise...
-def symbol_encode():
-    pass
+def symbol_encode(image:Image, tile_size=16)->bytes:
+    """Divides the image into non-overlapping tiles, storing only unique tiles."""
+    img_width, img_height = image.size
+    tiles = {}
+    locations = []
 
-def symbol_decode():
-    pass
+    for y in range(0, img_height, tile_size):
+        for x in range(0, img_width, tile_size):
+            box = (x, y, min(x+tile_size, img_width), min(y+tile_size, img_height))
+            tile = image.crop(box)
+            tile_array= np.array(tile)
+
+            # Create a unique hash for the tile array
+            tile_hash= hashlib.md5(tile_array.tobytes()).hexdigest()
+
+            if tile_hash not in tiles:
+                tiles[tile_hash] = tile_array
+            locations.append((tile_hash, (x, y)))
+
+    return pickle.dumps((tiles, locations, image.size))
+
+def symbol_decode(data:bytes)->Image:
+    """Reconstructs the image from unique tiles."""
+
+    tiles_dict, locations, original_size= pickle.loads(data)
+    new_image = Image.new('RGB', original_size)
+
+    for tile_hash, (x, y) in locations:
+        tile = tiles_dict[tile_hash]
+        new_image.paste(Image.fromarray(tile), (x, y))
+
+    return new_image
 
