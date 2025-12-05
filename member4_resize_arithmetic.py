@@ -1,8 +1,6 @@
 import cv2
 import numpy as np
 from PIL import Image
-import matplotlib.pyplot as plt
-
 
 def resize_nearest(img, nw, nh):
     return cv2.resize(img, (nw, nh), interpolation=cv2.INTER_NEAREST)
@@ -14,8 +12,8 @@ def resize_bilinear(img, nw, nh):
 def resize_bicubic(img, nw, nh):
     return cv2.resize(img, (nw, nh), interpolation=cv2.INTER_CUBIC)
 
-
-def arithmetic_encode(data):
+def arithmetic_encode(data:Image):
+    data= np.array(data).tobytes()
     freqs = {x:data.count(x)/len(data) for x in set(data)}
     low = 0.0
     high = 1.0
@@ -24,7 +22,6 @@ def arithmetic_encode(data):
         high = low + range_ * sum(freqs[s] for s in freqs if s <= symbol)
         low = low + range_ * sum(freqs[s] for s in freqs if s < symbol)
     return (low + high)/2, freqs
-
 
 def arithmetic_decode(code, freqs, length):
     sorted_symbols = sorted(freqs.keys())

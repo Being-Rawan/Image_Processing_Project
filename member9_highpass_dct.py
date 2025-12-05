@@ -26,8 +26,7 @@ import cv2
 import numpy as np
 import pickle
 import zlib
-import math
-from typing import Tuple, Dict, Any, Optional
+from PIL import Image
 
 # -------------------------
 # CONFIG: change these values to tune visible loss
@@ -100,58 +99,6 @@ def gradient_magnitude(img_array: np.ndarray) -> np.ndarray:
 # -------------------------
 # DCT block compression helpers
 # -------------------------
-def _safe_imdecode(data: bytes) -> Optional[np.ndarray]:
-    """Try decoding file bytes via OpenCV."""
-    try:
-        arr = np.frombuffer(data, dtype=np.uint8)
-        img = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
-        return img
-    except Exception:
-        return None
-
-
-def _guess_array_from_raw(data: bytes) -> np.ndarray:
-    """
-    Heuristic to try to interpret raw bytes as RGB/RGBA/grayscale array.
-    If ambiguous, prefer RGB when length divisible by 3.
-    """
-    total = len(data)
-    # prefer RGBA if divisible by 4 and yields a plausible rectangle
-    for channels in (3, 4, 1):
-        if channels == 1:
-            pixels = total
-        else:
-            if total % channels != 0:
-                continue
-            pixels = total // channels
-
-        s = int(math.isqrt(pixels))
-        # if perfect square, use it; otherwise try to find divisor pair
-        if s * s == pixels:
-            h, w = s, s
-        else:
-            # try to find a reasonable divisor pair close to square
-            h = s
-            # find a divisor <= sqrt
-            while h > 1 and pixels % h != 0:
-                h -= 1
-            if h == 1:
-                continue
-            w = pixels // h
-
-        arr = np.frombuffer(data, dtype=np.uint8)[: (h * w * channels)]
-        if channels == 1:
-            arr = arr.reshape((h, w))
-        else:
-            arr = arr.reshape((h, w, channels))
-        return arr
-
-    # last resort: treat as 1D grayscale square by cropping to s*s
-    s = int(math.isqrt(total))
-    arr = np.frombuffer(data, dtype=np.uint8)[: (s * s)]
-    return arr.reshape((s, s))
-
-
 def _create_quant_matrix(block_size: int) -> np.ndarray:
     """Return standard 8x8 quant matrix (or simple generalization)."""
     if block_size == 8:
@@ -192,7 +139,7 @@ def _quality_scale(quality: int) -> float:
 # -------------------------
 # Encode / Decode (interfaces expected by main_app.py)
 # -------------------------
-def dct_block_encode(data: bytes) -> bytes:
+def dct_block_encode(data: Image) -> bytes:
     """
     Accepts bytes (either image file bytes or raw arr.tobytes()).
     Produces a compressed packet (zlib-compressed pickle) that includes:
@@ -202,16 +149,17 @@ def dct_block_encode(data: bytes) -> bytes:
       - 'quality'
       - compressed blocks (list or per-channel lists)
     """
-    if not isinstance(data, (bytes, bytearray, memoryview)):
-        raise TypeError("dct_block_encode expects bytes-like input")
+    # data= np.array(data).tobytes()
+    # if not isinstance(data, (bytes, bytearray, memoryview)):
+    #     raise TypeError("dct_block_encode expects bytes-like input")
 
-    # Try file decode first (PNG/JPG/BMP)
-    img = _safe_imdecode(data)
-    if img is None:
-        # try to interpret as raw buffer
-        img = _guess_array_from_raw(data)
+#     # Try file decode first (PNG/JPG/BMP)
+#     img = _safe_imdecode(data)
+#     if img is None:
+#         # try to interpret as raw buffer
+#         img = _guess_array_from_raw(data)
 
-    arr = np.asarray(img)
+    arr = np.array(data)
     original_shape = arr.shape
 
     quality = DEFAULT_QUALITY

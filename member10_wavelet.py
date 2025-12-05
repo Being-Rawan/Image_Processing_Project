@@ -10,60 +10,20 @@ How to tune (you don't need to change GUI):
 Smaller quant_step -> less loss; larger -> more loss.
 """
 
-import math
 import pickle
-from typing import Optional, Tuple, Any
+from typing import Any
 
+from PIL import Image
 import numpy as np
 import pywt
-import cv2
 
 # -----------------------
 # MODERATE DEFAULTS (middle effect)
 # -----------------------
-DEFAULT_QUANT_STEP = 16.0        # moderate: 1=almost lossless, 12=moderate, 48+=strong
+DEFAULT_QUANT_STEP = 48.0        # moderate: 1=almost lossless, 12=moderate, 48+=strong
 DEFAULT_DETAIL_MULTIPLIER = 3.0  # amplify quantization on detail bands (mildly)
 DEFAULT_WAVELET = "haar"
 DEFAULT_LEVEL = 1
-
-
-# -----------------------
-# HELPERS
-# -----------------------
-def _safe_imdecode(data: bytes) -> Optional[np.ndarray]:
-    """Try to decode common image file bytes using OpenCV. Return None on failure."""
-    try:
-        arr = np.frombuffer(data, dtype=np.uint8)
-        img = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
-        return img
-    except Exception:
-        return None
-
-
-def _divisor_pair_for_pixels(n: int, limit_ratio: float = 2.5) -> Tuple[int, int]:
-    """Return a plausible (h, w) pair for raw buffers, preferring common aspect ratios."""
-    if n <= 0:
-        raise ValueError("n must be positive")
-    s = int(math.isqrt(n))
-    best = (s, s)
-    best_score = float("inf")
-    common = [(4 / 3), (16 / 9), 1.0]
-
-    for a in range(1, s + 1):
-        if n % a != 0:
-            continue
-        b = n // a
-        h, w = a, b
-        ratio = w / h if h != 0 else float("inf")
-        if ratio < 1.0 or ratio > limit_ratio:
-            continue
-        score = min(abs(ratio - r) for r in common)
-        if score < best_score:
-            best = (h, w)
-            best_score = score
-
-    return best
-
 
 # -----------------------
 # QUANTIZATION HELPERS
@@ -115,7 +75,7 @@ def _dequantize_coeffs(qcoeffs: Any, q: float, detail_mult: float) -> Any:
 # ENCODE (LOSSY)
 # -----------------------
 def wavelet_encode(
-    data: bytes,
+    data: Image,
     wavelet: str = DEFAULT_WAVELET,
     level: int = DEFAULT_LEVEL,
 ) -> bytes:
@@ -124,31 +84,7 @@ def wavelet_encode(
     Input: image file bytes (png/jpg/bmp) or raw buffer.
     Output: pickled packet (shape_info, quantized_coeffs, meta)
     """
-    if not isinstance(data, (bytes, bytearray, memoryview)):
-        raise TypeError("wavelet_encode expects bytes-like input.")
-
-    img = _safe_imdecode(data)
-
-    # If file decode failed, try raw buffer heuristics
-    if img is None:
-        total_bytes = len(data)
-        try:
-            if total_bytes % 4 == 0:
-                pixels = total_bytes // 4
-                h, w = _divisor_pair_for_pixels(pixels)
-                img = np.frombuffer(data, dtype=np.uint8)[:(h * w * 4)].reshape((h, w, 4))
-            elif total_bytes % 3 == 0:
-                pixels = total_bytes // 3
-                h, w = _divisor_pair_for_pixels(pixels)
-                img = np.frombuffer(data, dtype=np.uint8)[:(h * w * 3)].reshape((h, w, 3))
-            else:
-                pixels = total_bytes
-                h, w = _divisor_pair_for_pixels(pixels)
-                img = np.frombuffer(data, dtype=np.uint8)[:(h * w)].reshape((h, w))
-        except Exception as e:
-            raise ValueError(f"Failed to interpret raw bytes as image: {e}")
-
-    arr = np.asarray(img)
+    arr = np.array(data)
     original_shape = arr.shape
 
     # Compute wavelet coefficients per channel or grayscale

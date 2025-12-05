@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from PIL import Image
 
 
 # ============================================================
@@ -31,7 +32,7 @@ def median_filter_7x7(image):
 # 2) PREDICTIVE CODING (bytes <-> bytes)
 # ============================================================
 
-def predictive_encode(data: bytes) -> bytes:
+def predictive_encode(data: Image) -> bytes:
     """
     First-order predictive coding on a flat byte stream.
 
@@ -46,6 +47,8 @@ def predictive_encode(data: bytes) -> bytes:
     the data into residuals that are usually more suitable for
     entropy coders (e.g., Huffman, Arithmetic).
     """
+
+    data= np.array(data).tobytes()
     if not data:
         return b""
 
