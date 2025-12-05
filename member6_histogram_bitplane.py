@@ -29,41 +29,48 @@ def compute_histogram(gray_array):
 
 
 # -----------------------------------------------------------
-# 2) Bit-Plane Encoding using cv2 bit operations
+# 2) Bit-Plane Encoding
 # -----------------------------------------------------------
 def bitplane_encode(data: Image):
-    """
-    Converts bytes → numpy uint8 → 8 bit-planes (each 0/1).
-    Returns dict of 8 planes: plane0..plane7
-    """
-    arr= np.array(data).astype(np.uint8)
+    arr = np.array(data).astype(np.uint8)
     planes = {}
 
     for bit in range(8):
-        # Extract one bit using cv2 bitwise operations
-        plane = cv2.bitwise_and(arr, 1 << bit)
-        plane = cv2.compare(plane, 0, cv2.CMP_NE)  # convert to 0/1
-        plane = plane.astype(np.uint8)
-        planes[f"plane{bit}"] = plane.tobytes()
+        # 1. Isolate the bit
+        # This results in values of either 0 or (2^bit)
+        mask_val = 1 << bit
+        isolated = cv2.bitwise_and(arr, mask_val)
+
+        # 2. Compare to get a binary mask
+        # cv2.compare returns 255 for True, 0 for False
+        cmp_result = cv2.compare(isolated, 0, cv2.CMP_GT)
+
+        #  Convert 255 to 1
+        # We divide by 255 so the plane stores strictly 0 or 1
+        plane_0_1 = cv2.divide(cmp_result, 255)
+
+        planes[f"plane{bit}"] = plane_0_1.tobytes()
 
     return planes
 
-
 # -----------------------------------------------------------
-# 3) Bit-Plane Decoding using cv2.add and shifting
+# 3) Bit-Plane Decoding
 # -----------------------------------------------------------
 def bitplane_decode(comp):
-    """
-    Reconstruct bytes from bit-planes {plane0..plane7}
-    Each plane is stored as bytes containing 0 or 1.
-    """
     length = len(comp["plane0"])
     out = np.zeros(length, dtype=np.uint8)
 
     for bit in range(8):
+        # Load the plane (which is now strictly 0 or 1)
         plane = np.frombuffer(comp[f"plane{bit}"], dtype=np.uint8)
-        # value = plane * (1 << bit)
+
+        # Multiply 1 by the bit weight (e.g., 1 * 128 = 128)
+        # Since plane is uint8, we must ensure we don't overflow logic here,
+        # but since values are 0 or 1, multiplying by 128 fits in uint8.
         shifted = cv2.multiply(plane, (1 << bit))
+
+        # Add to the accumulator
         out = cv2.add(out, shifted)
 
     return out.tobytes()
+

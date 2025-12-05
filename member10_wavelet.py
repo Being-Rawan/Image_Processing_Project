@@ -20,7 +20,7 @@ import pywt
 # -----------------------
 # MODERATE DEFAULTS (middle effect)
 # -----------------------
-DEFAULT_QUANT_STEP = 48.0        # moderate: 1=almost lossless, 12=moderate, 48+=strong
+DEFAULT_QUANT_STEP = 16.0        # moderate: 1=almost lossless, 12=moderate, 48+=strong
 DEFAULT_DETAIL_MULTIPLIER = 3.0  # amplify quantization on detail bands (mildly)
 DEFAULT_WAVELET = "haar"
 DEFAULT_LEVEL = 1
