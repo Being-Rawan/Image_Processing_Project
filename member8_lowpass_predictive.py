@@ -97,3 +97,4 @@ def predictive_decode(comp: bytes) -> bytes:
     reconstructed = (cumsum & 0xFF).astype(np.uint8)
 
     return reconstructed.tobytes()
+

@@ -180,3 +180,4 @@ def golomb_rice_decode(bitstream):
     # --- FIX IS HERE ---
     # Convert the list of integers [10, 255, 0...] into bytes b'\x0a\xff\x00...'
     return bytes(data)
+

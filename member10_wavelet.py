@@ -161,3 +161,4 @@ def wavelet_decode(compressed_data: bytes) -> bytes:
 
     rec = np.clip(np.rint(rec), 0, 255).astype(np.uint8)
     return rec.tobytes()
+

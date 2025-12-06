@@ -12,6 +12,7 @@ Functions using OpenCV:
 import cv2
 import numpy as np
 from PIL import Image
+import pickle
 
 # -----------------------------------------------------------
 # 1) Histogram using cv2.calcHist
@@ -31,7 +32,7 @@ def compute_histogram(gray_array):
 # -----------------------------------------------------------
 # 2) Bit-Plane Encoding
 # -----------------------------------------------------------
-def bitplane_encode(data: Image):
+def bitplane_encode(data: Image)->bytes:
     arr = np.array(data).astype(np.uint8)
     planes = {}
 
@@ -51,12 +52,13 @@ def bitplane_encode(data: Image):
 
         planes[f"plane{bit}"] = plane_0_1.tobytes()
 
-    return planes
+    return pickle.dumps(planes)
 
 # -----------------------------------------------------------
 # 3) Bit-Plane Decoding
 # -----------------------------------------------------------
-def bitplane_decode(comp):
+def bitplane_decode(data:bytes)->bytes:
+    comp= pickle.loads(data)
     length = len(comp["plane0"])
     out = np.zeros(length, dtype=np.uint8)
 

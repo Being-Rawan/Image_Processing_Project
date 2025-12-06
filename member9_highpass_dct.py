@@ -141,7 +141,6 @@ def _quality_scale(quality: int) -> float:
 # -------------------------
 def dct_block_encode(data: Image) -> bytes:
     """
-    Accepts bytes (either image file bytes or raw arr.tobytes()).
     Produces a compressed packet (zlib-compressed pickle) that includes:
       - 'color' flag (True if 3+ channels)
       - 'original_shape' (tuple)
@@ -149,16 +148,6 @@ def dct_block_encode(data: Image) -> bytes:
       - 'quality'
       - compressed blocks (list or per-channel lists)
     """
-    # data= np.array(data).tobytes()
-    # if not isinstance(data, (bytes, bytearray, memoryview)):
-    #     raise TypeError("dct_block_encode expects bytes-like input")
-
-#     # Try file decode first (PNG/JPG/BMP)
-#     img = _safe_imdecode(data)
-#     if img is None:
-#         # try to interpret as raw buffer
-#         img = _guess_array_from_raw(data)
-
     arr = np.array(data)
     original_shape = arr.shape
 
@@ -314,3 +303,4 @@ def dct_block_decode(compressed_bytes: bytes) -> bytes:
         result = stacked[:h, :w, :c]
         rec_uint8 = np.clip(result, 0, 255).astype(np.uint8)
         return rec_uint8.tobytes()
+

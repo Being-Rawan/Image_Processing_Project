@@ -190,3 +190,4 @@ def rle_decode(comp: bytes) -> bytes:
         extend([value] * count)
 
     return bytes(out)
+

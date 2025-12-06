@@ -798,10 +798,10 @@ class ImageApp(tk.Tk):
         btn_frame = ttk.LabelFrame(tab, text="Actions", style="Panel.TLabelframe")
         btn_frame.pack(fill=tk.X, padx=5, pady=5)
 
-        ttk.Button(btn_frame, text="Compress", command=self.compress_image).pack(
+        ttk.Button(btn_frame, text="Encode", command=self.compress_image).pack(
             side=tk.LEFT, padx=5, pady=5
         )
-        ttk.Button(btn_frame, text="Decompress", command=self.decompress_image).pack(
+        ttk.Button(btn_frame, text="Decode", command=self.decompress_image).pack(
             side=tk.LEFT, padx=5, pady=5
         )
 
@@ -1404,10 +1404,6 @@ class ImageApp(tk.Tk):
             self.set_status("Compression failed: unknown method.")
             return
 
-        # data = self._image_to_bytes()
-        # if data is None:
-        #     return
-
         try:
             compressed = method["encode"](self.current_image)
         except NotImplementedError as e:
@@ -1434,6 +1430,20 @@ class ImageApp(tk.Tk):
             f"Compression ratio: {ratio:.2f} : 1" if comp_size else "Compression ratio: -"
         )
         self.set_status(f"Compressed using {method_name}.")
+
+        compressed_arr= np.frombuffer(compressed, dtype=np.uint8)
+        # self.current_image= Image.fromarray(np.frombuffer(compressed, dtype=np.uint8))
+        # padding= 255*np.ones_like(compressed_arr)
+        rem= len(compressed_arr)%self.current_array.shape[1]
+        if rem>0:
+                compressed_arr= np.concat([compressed_arr, [255]*(self.current_array.shape[1]-rem)])
+
+        w= self.current_array.shape[1]
+        h= compressed_arr.shape[0]//w
+
+        self.current_image= Image.fromarray(compressed_arr.reshape(h, w), mode='RGB')
+        self.chosen_image= self.current_image
+        self._update_image_display()
 
     def decompress_image(self):
         if self.compressed_data is None:
@@ -1483,3 +1493,4 @@ class ImageApp(tk.Tk):
 if __name__ == "__main__":
     app = ImageApp()
     app.mainloop()
+

@@ -123,3 +123,4 @@ def lzw_decode(compressed_data):
     # Convert list of strings to single string, then to bytes
     decompressed_str = "".join(result)
     return decompressed_str.encode('latin-1')
+

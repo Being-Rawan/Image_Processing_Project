@@ -163,3 +163,4 @@ def huffman_decode(comp: bytes) -> bytes:
             node = root
 
     return bytes(result)
+
