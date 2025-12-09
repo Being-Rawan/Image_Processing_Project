@@ -141,12 +141,15 @@ def golomb_rice_encode(data:Image)->bytes:
         parts.append(format(r, fmt))
 
     # Join all parts at once
-    return "".join(parts)
+    return bytes(''.join(parts), encoding='ascii')
 
-def golomb_rice_decode(bitstream):
+def golomb_rice_decode(bitstream:bytes)->bytes:
     """
     Optimized decoding that returns BYTES instead of a list.
     """
+
+    bitstream= ''.join(format(byte, '08b') for byte in bitstream)
+
     k = 4
     data = []
     i = 0

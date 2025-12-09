@@ -35,13 +35,13 @@ def symbol_encode(image:Image, tile_size=16)->bytes:
                 tiles[tile_hash] = tile_array
             locations.append((tile_hash, (x, y)))
 
-    return pickle.dumps((tiles, locations, image.size))
+    return pickle.dumps((tiles, locations, image.size, image.mode))
 
 def symbol_decode(data:bytes)->Image:
     """Reconstructs the image from unique tiles."""
 
-    tiles_dict, locations, original_size= pickle.loads(data)
-    new_image = Image.new('RGB', original_size)
+    tiles_dict, locations, original_size, image_mode= pickle.loads(data)
+    new_image = Image.new(image_mode, original_size)
 
     for tile_hash, (x, y) in locations:
         tile = tiles_dict[tile_hash]

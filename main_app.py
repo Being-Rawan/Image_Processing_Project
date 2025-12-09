@@ -50,7 +50,7 @@ except ImportError:
     def grayscale_fn(img_array):
         raise NotImplementedError("Grayscale function not implemented (Member 2).")
 
-    def binary_fn(img_array):
+    def binary_fn(img_array, maxval):
         raise NotImplementedError("Binary function not implemented (Member 2).")
 
     def huffman_encode(data):
@@ -607,6 +607,9 @@ class ImageApp(tk.Tk):
         ttk.Button(proc_frame, text="Binary (mean threshold)", command=self.apply_binary).pack(
             side=tk.LEFT, padx=5, pady=5
         )
+        self.thresh_maxval= tk.Variable(value=255)
+        ttk.Label(proc_frame, anchor='w', text='Max Value').pack()
+        ttk.Scale(proc_frame, to=255, variable=self.thresh_maxval).pack()
 
         self.binary_comment_var = tk.StringVar(value="")
         ttk.Label(proc_frame, textvariable=self.binary_comment_var, foreground="#fb7185").pack(
@@ -1042,7 +1045,7 @@ class ImageApp(tk.Tk):
         if not self._ensure_image():
             return
         try:
-            result = binary_fn(self.current_array)
+            result = binary_fn(self.current_array, self.thresh_maxval.get())
             if isinstance(result, tuple) and len(result) == 2:
                 bin_arr, comment = result
             else:

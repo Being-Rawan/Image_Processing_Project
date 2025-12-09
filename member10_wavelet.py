@@ -104,13 +104,7 @@ def wavelet_encode(
 
     qcoeffs = _quantize_coeffs(coeffs, q, dm)
 
-    packet = (
-        (mode, original_shape),
-        qcoeffs,
-        {"wavelet": wavelet, "level": level, "quant_step": q, "detail_multiplier": dm},
-    )
-    return pickle.dumps(packet)
-
+    return pickle.dumps(((mode, original_shape), qcoeffs, {"wavelet": wavelet, "level": level, "quant_step": q, "detail_multiplier": dm}))
 
 # -----------------------
 # DECODE

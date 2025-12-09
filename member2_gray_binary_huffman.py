@@ -21,10 +21,10 @@ def to_grayscale(img_array: np.ndarray) -> np.ndarray:
 # ------------------------------------------------------------
 # 2. Binary with mean threshold + comment
 # ------------------------------------------------------------
-def to_binary_with_mean_threshold(img_array: np.ndarray) -> Tuple[np.ndarray, str]:
+def to_binary_with_mean_threshold(img_array: np.ndarray, maxval:float) -> Tuple[np.ndarray, str]:
     gray = to_grayscale(img_array)
     mean_val = int(np.mean(gray))
-    _, binary = cv2.threshold(gray, mean_val, 255, cv2.THRESH_BINARY)
+    _, binary = cv2.threshold(gray, mean_val, maxval, cv2.THRESH_BINARY)
 
     # Simple quality comment (same logic as before, students love it)
     hist = cv2.calcHist([gray], [0], None, [256], [0, 256])
@@ -38,7 +38,6 @@ def to_binary_with_mean_threshold(img_array: np.ndarray) -> Tuple[np.ndarray, st
         comment = "poor (flat distribution, threshold may be arbitrary)"
 
     return binary, f"Threshold = {mean_val}; {comment}"
-
 
 # ------------------------------------------------------------
 # 3. Huffman coding (same reliable code, unchanged)
