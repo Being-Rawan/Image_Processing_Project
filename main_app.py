@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 import numpy as np
+import cv2
 
 # Matplotlib (only for histogram plotting – optional)
 try:
@@ -607,9 +608,17 @@ class ImageApp(tk.Tk):
         ttk.Button(proc_frame, text="Binary (mean threshold)", command=self.apply_binary).pack(
             side=tk.LEFT, padx=5, pady=5
         )
+        ttk.Button(proc_frame, text="Threshold", command=self.apply_thresh).pack(
+            side=tk.LEFT, padx=5, pady=5
+        )
+
         self.thresh_maxval= tk.Variable(value=255)
-        ttk.Label(proc_frame, anchor='w', text='Max Value').pack()
-        ttk.Scale(proc_frame, to=255, variable=self.thresh_maxval).pack()
+        ttk.Label(tab, anchor='w', text='Max Value').pack()
+        ttk.Scale(tab, to=255, variable=self.thresh_maxval).pack()
+
+        self.thresh= tk.Variable(value=128)
+        ttk.Label(tab, text='Threshold Value').pack()
+        ttk.Scale(tab, to=255, variable=self.thresh).pack()
 
         self.binary_comment_var = tk.StringVar(value="")
         ttk.Label(proc_frame, textvariable=self.binary_comment_var, foreground="#fb7185").pack(
@@ -1063,6 +1072,12 @@ class ImageApp(tk.Tk):
         self._set_array_as_image(bin_arr, mode="L")
         self.binary_comment_var.set(comment)
         self.set_status("Binary image generated.")
+
+    def apply_thresh(self):
+        if self._ensure_image():
+            f, result= cv2.threshold(self.current_array, self.thresh.get(), self.thresh_maxval.get(), cv2.THRESH_BINARY)
+            self._set_array_as_image(result)
+            self.set_status("Applied Thresholding.")
 
     # ============================================================
     # AFFINE TRANSFORMS & RESIZING & CROPPING
