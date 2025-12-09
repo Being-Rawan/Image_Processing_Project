@@ -8,6 +8,8 @@ import struct
 import heapq
 from typing import Tuple
 from PIL import Image
+# from dahuffman import HuffmanCodec
+# import pickle
 
 # ------------------------------------------------------------
 # 1. Grayscale conversion (using cv2 - super simple)
@@ -42,6 +44,23 @@ def to_binary_with_mean_threshold(img_array: np.ndarray, maxval:float) -> Tuple[
 # ------------------------------------------------------------
 # 3. Huffman coding (same reliable code, unchanged)
 # ------------------------------------------------------------
+'''
+def huffman_encode(data:Image)->bytes:
+    pixel_data= np.array(data).flatten()
+    frequency= {}
+    for pixel in pixel_data:
+        if pixel in frequency:
+            frequency[pixel]+= 1
+        else:
+            frequency[pixel]= 1
+    codec= HuffmanCodec.from_frequencies(frequency)
+    return pickle.dumps(codec, HuffmanCodec.encode(HuffmanCodec.from_frequencies(frequency), np.array(data).tobytes()))
+
+def huffman_decode(comp:bytes)->bytes:
+    codec, data= pickle.loads(comp)
+    return codec.decode(data)
+'''
+
 class _HuffmanNode:
     def __init__(self, freq, symbol=None, left=None, right=None):
         self.freq = freq
@@ -52,9 +71,6 @@ class _HuffmanNode:
         return self.freq < other.freq
 
 def huffman_encode(data: Image) -> bytes:
-    if not data:
-        return b''
-
     data= np.array(data).tobytes()
     # EX ==> data = [100, 100, 100, 50] ===>  freqs = {100: 3, 50: 1}
 

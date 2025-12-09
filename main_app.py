@@ -532,13 +532,13 @@ class ImageApp(tk.Tk):
         zoom_slider = ttk.Scale(
             zoom_frame,
             from_=25,
-            to=200,
+            to=500,
             orient=tk.HORIZONTAL,
             variable=self.zoom_var,
             command=self.on_zoom_change,   # uses handler that updates label + image
         )
         zoom_slider.pack(side=tk.LEFT, padx=2, pady=4)
-        ttk.Label(zoom_frame, text="200%", style="Zoom.TLabel").pack(side=tk.LEFT, padx=(2, 4))
+        ttk.Label(zoom_frame, text="500%", style="Zoom.TLabel").pack(side=tk.LEFT, padx=(2, 4))
 
         # Dynamic zoom percentage label (e.g., "137%") with pink background
         self.zoom_label = ttk.Label(
@@ -1444,7 +1444,7 @@ class ImageApp(tk.Tk):
         w= self.current_array.shape[1]
         h= compressed_arr.shape[0]//w
 
-        self.current_image= Image.fromarray(compressed_arr.reshape(h, w), mode='RGB')
+        self.current_image= Image.fromarray(compressed_arr.reshape(h, w), mode='L')
         self.chosen_image= self.current_image
         self._update_image_display()
 
