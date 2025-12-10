@@ -47,5 +47,5 @@ def symbol_decode(data:bytes)->Image:
         tile = tiles_dict[tile_hash]
         new_image.paste(Image.fromarray(tile), (x, y))
 
-    return np.array(new_image)
+    return np.array(new_image).tobytes()
 
