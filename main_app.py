@@ -1071,7 +1071,7 @@ class ImageApp(tk.Tk):
                 bin_arr, comment = result
             else:
                 bin_arr = result
-                # comment = "Binary image created (no comment returned)."
+                comment = "Binary image created (no comment returned)."
         except NotImplementedError as e:
             messagebox.showinfo("Not Implemented", str(e))
             self.set_status("Binary not implemented (Member 2).")
@@ -1082,7 +1082,7 @@ class ImageApp(tk.Tk):
             return
 
         self._set_array_as_image(bin_arr, mode="L")
-        # self.binary_comment_var.set(comment)
+        self.binary_comment_var.set(comment)
         self.set_status("Binary image generated.")
 
     def apply_thresh(self):
