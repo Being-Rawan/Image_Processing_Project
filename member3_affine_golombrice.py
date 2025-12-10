@@ -143,44 +143,44 @@ def golomb_rice_encode(data:Image)->bytes:
     # Join all parts at once
     return bytes(''.join(parts), encoding='ascii')
 
-def golomb_rice_decode(bitstream:bytes)->bytes:
+def golomb_rice_decode(bitstream: bytes) -> bytes:
     """
-    Optimized decoding that returns BYTES instead of a list.
+    Decodes the ASCII bytestream back into raw image bytes.
     """
-
-    bitstream= ''.join(format(byte, '08b') for byte in bitstream)
+    # FIX: Do NOT format the bytes into binary. 
+    # The input bytes ARE the characters '0' and '1'.
+    # Simply decode ASCII to get the string of bits.
+    bit_str = bitstream.decode('ascii') 
 
     k = 4
     data = []
     i = 0
-    total_len = len(bitstream)
+    total_len = len(bit_str)
 
     while i < total_len:
-        # 1. Read Unary (Count 1s) fast
-        # Use .find() to jump to the next '0'
-        next_zero_index = bitstream.find('0', i)
+        # 1. Read Unary (Count 1s until we hit a '0')
+        # Use .find() for speed
+        next_zero_index = bit_str.find('0', i)
 
         if next_zero_index == -1:
             break # End of stream or malformed
 
         q = next_zero_index - i
-        i = next_zero_index + 1 # Skip the '0' delimiter
+        # The delimiter '0' is at next_zero_index, so binary part starts after it
+        i = next_zero_index + 1 
 
-        # 2. Read Binary
+        # 2. Read Binary (k bits)
         if i + k > total_len:
             break
 
-        # Slicing is fast
-        binary_part = bitstream[i : i+k]
+        binary_part = bit_str[i : i+k]
         r = int(binary_part, 2)
 
         i += k
 
-        # 3. Reconstruct
+        # 3. Reconstruct value
         value = (q << k) + r
         data.append(value)
 
-    # --- FIX IS HERE ---
-    # Convert the list of integers [10, 255, 0...] into bytes b'\x0a\xff\x00...'
+    # Convert the list of integers back to a bytes object matching original image data
     return bytes(data)
-
