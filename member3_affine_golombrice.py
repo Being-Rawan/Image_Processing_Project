@@ -11,7 +11,7 @@ def get_pixel(img, x, y):
     h, w = img.shape[:2]
     if 0 <= x < w and 0 <= y < h:
         return img[int(y), int(x)]
-    # التعديل هنا: إرجاع 255 (أبيض) بدلاً من 0 (أسود) عند الخروج عن الحدود
+    
     return 255
 
 def translate(img_array, tx, ty):
@@ -113,74 +113,89 @@ def shear_y(img_array, ky):
     return output
 
 
-def golomb_rice_encode(data:Image)->bytes:
+def golomb_rice_encode(data: Image) -> bytes:
     """
-    Optimized: Uses a list builder to avoid slow string concatenation.
+    Properly packs bits into bytes instead of ASCII representation.
     """
-    data= np.array(data).tobytes()
+    data = np.array(data).tobytes()
     k = 4
     m = 1 << k
-
-    # Use a list to store chunks. This is much faster than string +=
-    parts = []
-
-    # Pre-calculate formatting string to avoid f-string parsing in loop
-    fmt = f'0{k}b'
-
+    
+    # Collect bits as a string first (for simplicity)
+    bit_string = []
+    
     for x in data:
         if x < 0: x = abs(x)
-
         q = x >> k
         r = x & (m - 1)
+        
+        # Unary part
+        bit_string.append("1" * q + "0")
+        # Binary part
+        bit_string.append(format(r, f'0{k}b'))
+    
+    # Join all bits
+    bits = ''.join(bit_string)
+    
+    # Pack bits into bytes
+    return pack_bits_to_bytes(bits)
 
-        # Append parts to list
-        # 1. Unary part ("1" repeated q times + "0")
-        parts.append("1" * q + "0")
-
-        # 2. Binary part
-        parts.append(format(r, fmt))
-
-    # Join all parts at once
-    return bytes(''.join(parts), encoding='ascii')
+def pack_bits_to_bytes(bit_string: str) -> bytes:
+    """
+    Converts a string of '0's and '1's into packed bytes.
+    Pads with zeros if necessary.
+    """
+    # Pad to multiple of 8
+    padding = (8 - len(bit_string) % 8) % 8
+    bit_string += '0' * padding
+    
+    # Convert every 8 bits to a byte
+    byte_array = bytearray()
+    for i in range(0, len(bit_string), 8):
+        byte = int(bit_string[i:i+8], 2)
+        byte_array.append(byte)
+    
+    # Store padding info in first byte (or use a header)
+    result = bytes([padding]) + bytes(byte_array)
+    return result
 
 def golomb_rice_decode(bitstream: bytes) -> bytes:
     """
-    Decodes the ASCII bytestream back into raw image bytes.
+    Unpacks bytes back to bits, then decodes.
     """
-    # FIX: Do NOT format the bytes into binary. 
-    # The input bytes ARE the characters '0' and '1'.
-    # Simply decode ASCII to get the string of bits.
-    bit_str = bitstream.decode('ascii') 
-
+    # First byte is padding info
+    padding = bitstream[0]
+    packed_data = bitstream[1:]
+    
+    # Unpack bytes to bit string
+    bit_string = ''.join(format(byte, '08b') for byte in packed_data)
+    
+    # Remove padding
+    if padding > 0:
+        bit_string = bit_string[:-padding]
+    
+    # Now decode as before
     k = 4
     data = []
     i = 0
-    total_len = len(bit_str)
-
+    total_len = len(bit_string)
+    
     while i < total_len:
-        # 1. Read Unary (Count 1s until we hit a '0')
-        # Use .find() for speed
-        next_zero_index = bit_str.find('0', i)
-
+        # Read unary
+        next_zero_index = bit_string.find('0', i)
         if next_zero_index == -1:
-            break # End of stream or malformed
-
+            break
         q = next_zero_index - i
-        # The delimiter '0' is at next_zero_index, so binary part starts after it
-        i = next_zero_index + 1 
-
-        # 2. Read Binary (k bits)
+        i = next_zero_index + 1
+        
+        # Read binary
         if i + k > total_len:
             break
-
-        binary_part = bit_str[i : i+k]
-        r = int(binary_part, 2)
-
+        r = int(bit_string[i:i+k], 2)
         i += k
-
-        # 3. Reconstruct value
+        
+        # Reconstruct value
         value = (q << k) + r
         data.append(value)
-
-    # Convert the list of integers back to a bytes object matching original image data
+    
     return bytes(data)
