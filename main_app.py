@@ -265,7 +265,7 @@ class ImageApp(tk.Tk):
     def __init__(self):
         super().__init__()
         # More attractive title
-        self.title("Image Processing Studio 🎨")
+        self.title("Image Processing Project")
         self.geometry("1300x750")
         self.configure(bg="#fdfcff")  # light, soft background
 
@@ -426,14 +426,14 @@ class ImageApp(tk.Tk):
 
         title_label = ttk.Label(
             title_row,
-            text="✨ Image Processing Studio",
+            text="Image Processing Project",
             style="Title.TLabel",
         )
         title_label.pack(side=tk.LEFT)
 
         subtitle_label = ttk.Label(
             title_row,
-            text="Upload an image, try transformations, filters, histogram, and compression 🧠📷",
+            text="Upload an image, try transformations, filters, histogram, and compression",
             style="Subtitle.TLabel",
         )
         subtitle_label.pack(side=tk.LEFT, padx=16)
@@ -1059,7 +1059,7 @@ class ImageApp(tk.Tk):
                 bin_arr, comment = result
             else:
                 bin_arr = result
-                comment = "Binary image created (no comment returned)."
+                # comment = "Binary image created (no comment returned)."
         except NotImplementedError as e:
             messagebox.showinfo("Not Implemented", str(e))
             self.set_status("Binary not implemented (Member 2).")
@@ -1070,7 +1070,7 @@ class ImageApp(tk.Tk):
             return
 
         self._set_array_as_image(bin_arr, mode="L")
-        self.binary_comment_var.set(comment)
+        # self.binary_comment_var.set(comment)
         self.set_status("Binary image generated.")
 
     def apply_thresh(self):
@@ -1254,11 +1254,11 @@ class ImageApp(tk.Tk):
             min_nonzero = min((i for i, v in enumerate(hist) if v > 0), default=0)
             max_nonzero = max((i for i, v in enumerate(hist) if v > 0), default=255)
             spread = max_nonzero - min_nonzero
-            if spread < 100:
-                comment = "Histogram is narrow: low contrast."
-            else:
-                comment = "Histogram is well spread: good contrast."
-            self.hist_comment_var.set(comment)
+            # if spread < 100:
+            #     comment = "Histogram is narrow: low contrast."
+            # else:
+            #     comment = "Histogram is well spread: good contrast."
+            # self.hist_comment_var.set(comment)
 
         if HAS_MPL and self.hist_figure is not None:
             self.hist_ax.clear()
@@ -1295,8 +1295,8 @@ class ImageApp(tk.Tk):
             return
 
         self._set_array_as_image(eq, mode="L")
-        self.hist_comment_var.set("Histogram equalization applied.")
-        self.set_status("Histogram equalization applied.")
+        # self.hist_comment_var.set("Histogram equalization applied.")
+        # self.set_status("Histogram equalization applied.")
         self.show_histogram()
 
     # ============================================================
