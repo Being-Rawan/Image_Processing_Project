@@ -3,6 +3,7 @@ from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 import numpy as np
 import cv2
+from scipy.fftpack import dct
 
 # Matplotlib (only for histogram plotting – optional)
 try:
@@ -828,6 +829,17 @@ class ImageApp(tk.Tk):
         ttk.Label(stats_frame, textvariable=self.comp_size_var).pack(anchor="w", padx=5, pady=2)
         ttk.Label(stats_frame, textvariable=self.ratio_var).pack(anchor="w", padx=5, pady=2)
 
+        if HAS_MPL:
+            self.coeffs_fig = Figure(figsize=(3, 3), dpi=100)
+            self.coeffs_ax = self.coeffs_fig.add_subplot(111)
+            self.coeffs_ax.axis('off')
+            self.coeffs_canvas = FigureCanvasTkAgg(self.coeffs_fig, master=stats_frame)
+            self.coeffs_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        else:
+            ttk.Label(stats_frame, text="Matplotlib not available for histogram plotting.").pack(
+                padx=10, pady=10
+            )
+
     # ============================================================
     # FILE OPERATIONS
     # ============================================================
@@ -1254,11 +1266,11 @@ class ImageApp(tk.Tk):
             min_nonzero = min((i for i, v in enumerate(hist) if v > 0), default=0)
             max_nonzero = max((i for i, v in enumerate(hist) if v > 0), default=255)
             spread = max_nonzero - min_nonzero
-            # if spread < 100:
-            #     comment = "Histogram is narrow: low contrast."
-            # else:
-            #     comment = "Histogram is well spread: good contrast."
-            # self.hist_comment_var.set(comment)
+            if spread < 100:
+                comment = "Histogram is narrow: low contrast."
+            else:
+                comment = "Histogram is well spread: good contrast."
+            self.hist_comment_var.set(comment)
 
         if HAS_MPL and self.hist_figure is not None:
             self.hist_ax.clear()
@@ -1463,7 +1475,25 @@ class ImageApp(tk.Tk):
         self.chosen_image= self.current_image
         self._update_image_display()
 
+        if method_name in ["DCT-block", "Wavelet"] and HAS_MPL and self.hist_figure is not None:
+            if method_name == "DCT-block":
+                gray= np.float32(grayscale_fn(self.current_array))
+                dct_coeffs= cv2.dct(gray)
+                dct_img= np.log(np.abs(dct_coeffs)+1)
+                dct_img= cv2.normalize(dct_img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+
+                # Create visualization on coeffs_ax
+                self.coeffs_ax.clear()
+                im = self.coeffs_ax.imshow(dct_img, cmap='gray')
+                self.coeffs_ax.set_title('DCT Coefficients (Log Scale)')
+                # self.coeffs_ax.axis('off')
+                self.coeffs_fig.tight_layout()
+                self.coeffs_canvas.draw()
+
     def decompress_image(self):
+        self.coeffs_ax.clear()
+        self.coeffs_ax.axis('off')
+        self.coeffs_canvas.draw()
         if self.compressed_data is None:
             messagebox.showwarning("No Data", "Please compress an image first.")
             self.set_status("Decompression failed: no compressed data.")
