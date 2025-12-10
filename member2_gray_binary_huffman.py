@@ -32,14 +32,14 @@ def to_binary_with_mean_threshold(img_array: np.ndarray, maxval:float) -> Tuple[
     hist = cv2.calcHist([gray], [0], None, [256], [0, 256])
     peak_ratio = np.max(hist) / gray.size
 
-    # if peak_ratio > 0.25:
-    #     comment = "good (strong peak around threshold)"
-    # elif peak_ratio > 0.15:
-    #     comment = "acceptable (moderate separation)"
-    # else:
-    #     comment = "poor (flat distribution, threshold may be arbitrary)"
+    if peak_ratio > 0.25:
+        comment = "good (strong peak around threshold)"
+    elif peak_ratio > 0.15:
+        comment = "acceptable (moderate separation)"
+    else:
+        comment = "poor (flat distribution, threshold may be arbitrary)"
 
-    return binary
+    return binary, f"Threshold = {mean_val}; {comment}"
 
 # ------------------------------------------------------------
 # 3. Huffman coding (same reliable code, unchanged)
