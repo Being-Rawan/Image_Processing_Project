@@ -1,6 +1,7 @@
 # member5_crop_lzw.py
 import numpy as np
 from PIL import Image
+import pickle
 
 def crop_image(img_array, x1, y1, x2, y2):
     """
@@ -47,7 +48,7 @@ def lzw_encode(data:Image):
     Returns:
         Compressed data as list of integers (codes)
     """
-    data= np.array(data).tobytes()
+    data= np.array(data, dtype=np.uint8).tobytes()
     if isinstance(data, (bytes, bytearray)):
         # Convert bytes to string for LZW encoding
         data_str = data.decode('latin-1')
@@ -77,7 +78,7 @@ def lzw_encode(data:Image):
     if w:
         result.append(dictionary[w])
 
-    return result
+    return pickle.dumps(result)
 
 def lzw_decode(compressed_data):
     """
@@ -89,8 +90,7 @@ def lzw_decode(compressed_data):
     Returns:
         Decompressed data as bytes
     """
-    if not compressed_data:
-        return b""
+    compressed_data= pickle.loads(compressed_data)
 
     # Initialize dictionary with all possible single characters
     dict_size = 256

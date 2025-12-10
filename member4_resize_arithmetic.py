@@ -8,7 +8,6 @@ def resize_nearest(img, nw, nh):
 def resize_bilinear(img, nw, nh):
     return cv2.resize(img, (nw, nh), interpolation=cv2.INTER_LINEAR)
 
-
 def resize_bicubic(img, nw, nh):
     return cv2.resize(img, (nw, nh), interpolation=cv2.INTER_CUBIC)
 
