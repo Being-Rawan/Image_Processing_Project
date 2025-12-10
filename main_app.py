@@ -1486,17 +1486,25 @@ class ImageApp(tk.Tk):
             self.set_status("Decompression error.")
             return
 
-        try:
-            arr = self._bytes_to_image_array(data)
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to reconstruct image from decompressed data: {e}")
-            self.set_status("Error reconstructing decompressed image.")
-            return
+        if isinstance(data, Image.Image):
+            # If the decoder returns a PIL Image directly (smart decoder)
+            arr = np.array(data)
+            orig_size = arr.nbytes
+            self._set_array_as_image(arr)
+        else:
+            # Fallback for simple decoders returning raw bytes (relying on current shape)
+            try:
+                arr = self._bytes_to_image_array(data)
+                self._set_array_as_image(arr)
+                orig_size = len(data)
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to reconstruct image from decompressed data: {e}")
+                self.set_status("Error reconstructing decompressed image.")
+                return
 
         self._set_array_as_image(arr)
 
         # After decompression: show only original size, clear other stats
-        orig_size = len(data)
         self.orig_size_var.set(f"Original size: {self._format_size(orig_size)}")
         self.comp_size_var.set("Compressed size: -")
         self.ratio_var.set("Compression ratio: -")
