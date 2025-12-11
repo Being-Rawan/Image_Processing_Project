@@ -3,10 +3,11 @@ from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 import numpy as np
 import cv2
-from scipy.fftpack import dct
+import pywt
 
 # Matplotlib (only for histogram plotting – optional)
 try:
+    import matplotlib.pyplot as plt
     from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
     from matplotlib.figure import Figure
     HAS_MPL = True
@@ -613,17 +614,27 @@ class ImageApp(tk.Tk):
             side=tk.LEFT, padx=5, pady=5
         )
 
-        self.thresh_maxval= tk.Variable(value=255)
-        ttk.Label(tab, anchor='w', text='Max Value').pack()
-        ttk.Scale(tab, to=255, variable=self.thresh_maxval).pack()
+        self.thresh = tk.IntVar(value=128)
+        # ttk.Label(proc_frame, text="Threshold Value:").pack(side=tk.LEFT, padx=5)
+        ttk.Scale(proc_frame, to=255, variable=self.thresh, 
+              command=lambda v: self.thresh_label.config(text=str(int(float(v))))).pack(side=tk.RIGHT, padx=5)
+        self.thresh_label = ttk.Label(proc_frame, text="128", foreground="#fb7185")
+        self.thresh_label.pack(side=tk.LEFT, padx=2)
 
-        self.thresh= tk.Variable(value=128)
-        ttk.Label(tab, text='Threshold Value').pack()
-        ttk.Scale(tab, to=255, variable=self.thresh).pack()
+        sliders_frame= ttk.Frame(tab, style="Right.TFrame")
+        sliders_frame.pack(fill=tk.Y, padx=5, pady=5)
+
+        self.thresh_maxval = tk.IntVar(value=255)
+        ttk.Label(sliders_frame, text="Max Value:").pack(side=tk.LEFT, padx=5, anchor='n')
+        ttk.Scale(sliders_frame, to=255, variable=self.thresh_maxval, 
+              command=lambda v: self.thresh_maxval_label.config(text=str(int(float(v))))).pack(side=tk.RIGHT, padx=5, anchor='n')
+        self.thresh_maxval_label = ttk.Label(sliders_frame, text="255", foreground="#fb7185")
+        self.thresh_maxval_label.pack(side=tk.LEFT, padx=2, anchor='n')
+
 
         self.binary_comment_var = tk.StringVar(value="")
-        ttk.Label(proc_frame, textvariable=self.binary_comment_var, foreground="#fb7185").pack(
-            side=tk.LEFT, padx=5
+        ttk.Label(tab, textvariable=self.binary_comment_var, foreground="#fb7185").pack(
+            side=tk.BOTTOM, padx=5
         )
 
     # ----------------- TRANSFORM TAB -----------------
@@ -1475,20 +1486,93 @@ class ImageApp(tk.Tk):
         self.chosen_image= self.current_image
         self._update_image_display()
 
-        if method_name in ["DCT-block", "Wavelet"] and HAS_MPL and self.hist_figure is not None:
+        if HAS_MPL and self.hist_figure is not None:
+            self.coeffs_ax.clear()
+            gray= np.float32(grayscale_fn(self.current_array))
             if method_name == "DCT-block":
-                gray= np.float32(grayscale_fn(self.current_array))
                 dct_coeffs= cv2.dct(gray)
                 dct_img= np.log(np.abs(dct_coeffs)+1)
                 dct_img= cv2.normalize(dct_img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
 
                 # Create visualization on coeffs_ax
-                self.coeffs_ax.clear()
                 im = self.coeffs_ax.imshow(dct_img, cmap='gray')
                 self.coeffs_ax.set_title('DCT Coefficients (Log Scale)')
-                # self.coeffs_ax.axis('off')
                 self.coeffs_fig.tight_layout()
                 self.coeffs_canvas.draw()
+            elif method_name == "Wavelet":
+                LL, (LH, HL, HH) = pywt.dwt2(gray, 'haar')
+                
+                # Normalize coefficients for display
+                LL_norm = cv2.normalize(LL, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                LH_norm = cv2.normalize(np.abs(LH), None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                HL_norm = cv2.normalize(np.abs(HL), None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                HH_norm = cv2.normalize(np.abs(HH), None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                
+                # Create 2x2 grid of wavelet coefficients
+                h_top = np.hstack([LL_norm, LH_norm])
+                h_bot = np.hstack([HL_norm, HH_norm])
+                wavelet_display = np.vstack([h_top, h_bot])
+                
+                # Update main image display and stats
+                self.current_image = Image.fromarray(wavelet_display, mode='L')
+                self.chosen_image = self.current_image
+                self._update_image_display()
+                
+                #Also show in coefficients panel
+                # self.coeffs_ax.clear()
+                # self.coeffs_ax.imshow(wavelet_display, cmap='gray')
+                # self.coeffs_ax.set_title('Wavelet Coefficients')
+                # self.coeffs_ax.axis('off')
+                # self.coeffs_fig.tight_layout()
+                # self.coeffs_canvas.draw()
+            elif method_name == "Predictive":
+                predictor= np.zeros_like(gray)
+                predictor[:,1:] = gray[:, :-1]
+
+                residual= gray.astype(int)-predictor.astype(int)
+                residual= np.clip(residual+128, 0, 255).astype(np.uint8)
+
+                self.current_image = Image.fromarray(residual, mode='L')
+                self.chosen_image = self.current_image
+                self._update_image_display()
+
+                # self.coeffs_ax.clear()
+                # self.coeffs_ax.imshow(residual, cmap='gray')
+                # self.coeffs_ax.set_title('Predictive Residual')
+                # self.coeffs_ax.axis('off')
+                # self.coeffs_fig.tight_layout()
+                # self.coeffs_canvas.draw()
+            elif method_name == "Bit-plane":
+                bit_planes = []
+                for i in range(8):
+                    plane = ((gray.astype(np.uint32) >> i) & 1) * 255
+                    bit_planes.append(plane.astype(np.uint8))
+                
+                # Concatenate all bit planes horizontally
+                bit_planes_concat = np.hstack(bit_planes)
+                
+                # Stack original image on top
+                display = np.vstack([
+                    np.hstack([gray] + [np.zeros_like(gray)] * 7),  # Original on left, padding on right
+                    bit_planes_concat
+                ])
+
+                plt.imshow(display, cmap='gray')
+                plt.title('Bit Planes (Original + 8 Planes)')
+                plt.axis('off')
+                plt.show()
+
+                # self.current_image = Image.fromarray(display, mode='L')
+                # self.chosen_image = self.current_image
+                # self._update_image_display()
+                
+                # Also show in coefficients panel
+                # self.coeffs_ax.clear()
+                # self.coeffs_ax.imshow(display, cmap='gray')
+                # self.coeffs_ax.set_title('Bit Planes (Original + 8 Planes)')
+                # self.coeffs_ax.axis('off')
+                # self.coeffs_fig.tight_layout()
+                # self.coeffs_canvas.draw()
 
     def decompress_image(self):
         self.coeffs_ax.clear()
